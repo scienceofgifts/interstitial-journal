@@ -4,6 +4,21 @@ export type AudioRetentionPreference = 'keep' | 'delete_after_approval';
 export type TranscriptionProviderId = 'gemini-3.5-transcribe' | 'browser-speech';
 export type AccentColorPreference = 'terracotta' | 'midnight' | 'sapphire' | 'forest';
 
+export type EntrySyncStatus =
+  | 'synced'
+  | 'pending_upsert'
+  | 'pending_delete'
+  | 'deleted_synced';
+
+export type CloudSyncState = 'idle' | 'syncing' | 'synced' | 'pending' | 'error';
+
+export interface SyncStateSummary {
+  state: CloudSyncState;
+  pendingCount: number;
+  lastSyncedAtIso: string | null;
+  errorMessage: string | null;
+}
+
 export interface JournalEntry {
   id: string;
   ownerId: string;
@@ -18,6 +33,11 @@ export interface JournalEntry {
   dateKey: string; // YYYY-MM-DD in user's local timezone
   createdAtIso: string;
   updatedAtIso: string;
+  // Local-only synchronization metadata (stripped before Firestore writes)
+  syncStatus?: EntrySyncStatus;
+  cloudSynced?: boolean;
+  lastSyncedUpdatedAtIso?: string;
+  deletedAtIso?: string;
 }
 
 export interface UserSettings {
@@ -26,6 +46,16 @@ export interface UserSettings {
   audioRetention: AudioRetentionPreference;
   transcriptionProvider: TranscriptionProviderId;
   accentColor?: AccentColorPreference;
+}
+
+export function areSettingsEqual(a: UserSettings, b: UserSettings): boolean {
+  return (
+    a.theme === b.theme &&
+    a.defaultCleanupMode === b.defaultCleanupMode &&
+    a.audioRetention === b.audioRetention &&
+    a.transcriptionProvider === b.transcriptionProvider &&
+    (a.accentColor || 'terracotta') === (b.accentColor || 'terracotta')
+  );
 }
 
 export interface ActiveDraft {

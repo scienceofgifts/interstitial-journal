@@ -133,8 +133,8 @@ export const VoiceRecorderStudio: React.FC<VoiceRecorderStudioProps> = ({
 
   // Persist active review state to IndexedDB automatically
   useEffect(() => {
-    if (stage === 'review' && draftId) {
-      saveActiveDraft({
+    if (stage === 'review' && draftId && !isSaving && !isSavingRef.current) {
+      void saveActiveDraft({
         id: draftId,
         audioId,
         audioBlob,
@@ -152,6 +152,7 @@ export const VoiceRecorderStudio: React.FC<VoiceRecorderStudioProps> = ({
   }, [
     stage,
     draftId,
+    isSaving,
     audioId,
     audioBlob,
     audioMimeType,

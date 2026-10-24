@@ -21,26 +21,38 @@ import {
 } from 'lucide-react';
 import {
   AccentColorPreference,
+  areSettingsEqual,
   formatDuration,
   formatEditorialDateHeading,
   formatTimeOfDay,
   getLocalDateKey,
   JournalEntry,
+  SyncStateSummary,
   UserSettings,
 } from './types/journal';
 import {
   auth,
-  createEntryInFirestore,
-  deleteEntryFromFirestore,
   onAuthStateChanged,
-  saveUserSettingsToFirestore,
   signInWithGoogle,
   signOutUser,
-  subscribeToFirestoreEntries,
-  updateEntryInFirestore,
   User,
 } from './lib/firebase';
-import { cacheLocalAudioBlob, deleteCachedLocalAudioBlob } from './lib/draftStorage';
+import {
+  cacheLocalAudioBlob,
+  deleteCachedLocalAudioBlob,
+  loadLocalSettings,
+  loadVisibleLocalEntries,
+  markLocalEntryDeleted,
+  saveLocalSettings,
+  sortEntriesDescending,
+  upsertLocalEntryFromUser,
+} from './lib/draftStorage';
+import {
+  defaultMirrorDeleteToD1,
+  defaultMirrorUpsertToD1,
+  SyncCoordinator,
+  THREE_HOURS_MS,
+} from './lib/syncEngine';
 import { VoiceRecorderStudio } from './components/VoiceRecorderStudio';
 import { AudioPlayer } from './components/AudioPlayer';
 import { EntryDetailModal } from './components/EntryDetailModal';
@@ -100,8 +112,33 @@ export default function App() {
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
+  // Cloud synchronization state (separate from local save state)
+  const [syncSummary, setSyncSummary] = useState<SyncStateSummary>({
+    state: 'idle',
+    pendingCount: 0,
+    lastSyncedAtIso: null,
+    errorMessage: null,
+  });
+
+  const userRef = useRef<User | null>(null);
   const studioContainerRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  const syncCoordinatorRef = useRef<SyncCoordinator | null>(null);
+  if (!syncCoordinatorRef.current) {
+    syncCoordinatorRef.current = new SyncCoordinator({
+      onStateChange: (nextSummary, nextVisibleEntries) => {
+        setSyncSummary(nextSummary);
+        if (nextVisibleEntries) {
+          setEntries(nextVisibleEntries);
+        }
+      },
+    });
+  }
+  const syncCoordinator = syncCoordinatorRef.current;
+  syncCoordinator.setCurrentUidGetter(() =>
+    userRef.current && userRef.current.emailVerified ? userRef.current.uid : null
+  );
 
   // 1. Apply Light / Dark / System theme to document root
   useEffect(() => {
@@ -134,154 +171,180 @@ export default function App() {
     } catch {}
   }, [settings.accentColor]);
 
-  // 2. Load persistent server entries & settings on initial mount
+  // 2. Load local IndexedDB entries & settings first on mount, then migrate/merge D1 in background
   useEffect(() => {
-    async function fetchInitialData() {
+    let cancelled = false;
+
+    async function initializeLocalFirstStore() {
       setIsLoadingEntries(true);
       try {
-        const [entriesRes, settingsRes] = await Promise.all([
-          fetch('/api/entries'),
-          fetch('/api/settings'),
+        const [localEntries, localSettings] = await Promise.all([
+          loadVisibleLocalEntries(),
+          loadLocalSettings(),
         ]);
-        if (entriesRes.ok) {
-          const data = await entriesRes.json();
-          if (Array.isArray(data.entries)) {
-            setEntries(data.entries);
-          }
-        }
-        if (settingsRes.ok) {
-          const sData = await settingsRes.json();
-          if (sData.settings) {
+
+        if (!cancelled) {
+          setEntries(localEntries);
+          if (localSettings) {
             setSettings((prev) => ({
               ...prev,
-              ...sData.settings,
-              accentColor: sData.settings.accentColor || prev.accentColor || 'terracotta',
+              ...localSettings,
+              accentColor: localSettings.accentColor || prev.accentColor || 'terracotta',
             }));
+          }
+          setIsLoadingEntries(false);
+        }
+
+        // Refresh sync summary from local IndexedDB immediately
+        void syncCoordinator.emitStatus(localEntries);
+
+        // Background migration/import from D1 (/api/entries) without blocking UI or overwriting local edits
+        void syncCoordinator.importInitialFromD1();
+
+        // If no local settings cached yet, import initial settings from /api/settings
+        if (!localSettings) {
+          try {
+            const settingsRes = await fetch('/api/settings');
+            if (settingsRes.ok) {
+              const sData = await settingsRes.json();
+              if (sData.settings && !cancelled) {
+                const mergedSettings: UserSettings = {
+                  theme: sData.settings.theme || 'light',
+                  defaultCleanupMode: sData.settings.defaultCleanupMode || 'clean',
+                  audioRetention: sData.settings.audioRetention || 'keep',
+                  transcriptionProvider:
+                    sData.settings.transcriptionProvider || 'gemini-3.5-transcribe',
+                  accentColor: sData.settings.accentColor || 'terracotta',
+                };
+                setSettings(mergedSettings);
+                await saveLocalSettings(mergedSettings);
+              }
+            }
+          } catch {
+            // Non-fatal offline
           }
         }
       } catch (err) {
-        console.warn('Offline or error loading server entries:', err);
+        console.warn('Error initializing local journal store:', err);
       } finally {
-        setIsLoadingEntries(false);
+        if (!cancelled) {
+          setIsLoadingEntries(false);
+        }
       }
     }
-    fetchInitialData();
-  }, []);
 
-  // 3. Firebase Auth & Real-Time Firestore Subscription
+    initializeLocalFirstStore();
+    return () => {
+      cancelled = true;
+    };
+  }, [syncCoordinator]);
+
+  // 3. Firebase Auth & Low-Frequency / Foreground / Online Cloud Synchronization
   useEffect(() => {
-    let unsubFirestore: (() => void) | null = null;
     const unsubAuth = onAuthStateChanged(auth, (currentUser) => {
+      userRef.current = currentUser;
       setUser(currentUser);
-      if (unsubFirestore) {
-        unsubFirestore();
-        unsubFirestore = null;
-      }
       if (currentUser && currentUser.emailVerified) {
-        unsubFirestore = subscribeToFirestoreEntries(currentUser.uid, (cloudEntries) => {
-          setEntries((prevServerEntries) => {
-            const byId = new Map<string, JournalEntry>();
-            for (const item of prevServerEntries) {
-              byId.set(item.id, item);
-            }
-            for (const cloudItem of cloudEntries) {
-              byId.set(cloudItem.id, cloudItem);
-            }
-            const merged = Array.from(byId.values());
-            merged.sort(
-              (a, b) =>
-                new Date(b.createdAtIso).getTime() - new Date(a.createdAtIso).getTime()
-            );
-            return merged;
-          });
-        });
+        void syncCoordinator.synchronize('auto');
+      } else {
+        void syncCoordinator.emitStatus();
       }
     });
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && userRef.current?.emailVerified) {
+        void syncCoordinator.synchronize('auto');
+      }
+    };
+
+    const handleOnline = () => {
+      if (userRef.current?.emailVerified) {
+        void syncCoordinator.synchronize('auto');
+      } else {
+        void syncCoordinator.emitStatus();
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && userRef.current?.emailVerified) {
+        void syncCoordinator.synchronize('auto');
+      }
+    }, THREE_HOURS_MS);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
+
     return () => {
       unsubAuth();
-      if (unsubFirestore) unsubFirestore();
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
     };
-  }, []);
+  }, [syncCoordinator]);
 
-  // Save a newly recorded & reviewed journal entry
+  const handleManualSync = async () => {
+    await syncCoordinator.synchronize('manual');
+  };
+
+  // Save a newly recorded & reviewed journal entry (Immediate Local-First IndexedDB persistence)
   const handleSaveNewEntry = async (newEntry: JournalEntry, audioBlob?: Blob) => {
+    const savedLocal = await upsertLocalEntryFromUser(newEntry);
+
     if (audioBlob && newEntry.audioId) {
       void cacheLocalAudioBlob(newEntry.audioId, audioBlob, newEntry.audioMimeType);
     }
 
-    // 1. Save to persistent backend API — do not report saved until backend confirms
-    const res = await fetch('/api/entries', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newEntry),
-    });
+    setEntries((prev) =>
+      sortEntriesDescending([
+        savedLocal,
+        ...prev.filter((e) => e.id !== savedLocal.id),
+      ])
+    );
 
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || 'Failed to save entry to persistent server storage.');
-    }
-
-    const { entry: savedServerEntry } = await res.json();
-
-    setEntries((prev) => {
-      const filtered = prev.filter((e) => e.id !== savedServerEntry.id);
-      return [savedServerEntry, ...filtered];
-    });
-
-    // 2. If authenticated with Firebase, also persist to Firestore without blocking UI state completion
-    if (user && user.emailVerified) {
-      void createEntryInFirestore({ ...savedServerEntry, ownerId: user.uid }).catch(
-        (err) => {
-          console.warn('Firestore sync warning:', err);
-        }
-      );
+    // Best-effort background status update, D1 mirror, and cloud push without blocking local save
+    void syncCoordinator.emitStatus();
+    void defaultMirrorUpsertToD1(savedLocal, false);
+    if (userRef.current && userRef.current.emailVerified) {
+      void syncCoordinator.synchronize('push_only');
     }
   };
 
-  // Update an edited entry (preserving createdAtIso, updating updatedAtIso)
+  // Update an edited entry locally in IndexedDB first, then sync in background
   const handleUpdateEntry = async (updatedEntry: JournalEntry) => {
-    const res = await fetch(`/api/entries/${encodeURIComponent(updatedEntry.id)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedEntry),
-    });
+    const savedLocal = await upsertLocalEntryFromUser(updatedEntry);
 
-    if (!res.ok) {
-      throw new Error('Failed to save updated entry.');
-    }
+    setEntries((prev) =>
+      sortEntriesDescending([
+        savedLocal,
+        ...prev.filter((e) => e.id !== savedLocal.id),
+      ])
+    );
 
-    const { entry: saved } = await res.json();
-
-    setEntries((prev) => prev.map((e) => (e.id === saved.id ? saved : e)));
-
-    if (user && user.emailVerified) {
-      void updateEntryInFirestore({ ...saved, ownerId: user.uid }).catch((err) => {
-        console.warn('Firestore update warning:', err);
-      });
+    void syncCoordinator.emitStatus();
+    void defaultMirrorUpsertToD1(savedLocal, true);
+    if (userRef.current && userRef.current.emailVerified) {
+      void syncCoordinator.synchronize('push_only');
     }
   };
 
-  // Delete an entry and its associated retained audio
+  // Delete an entry locally with a durable tombstone so it never resurrects
   const handleDeleteEntry = async (entryId: string) => {
     const target = entries.find((e) => e.id === entryId);
     if (target?.audioId) {
       void deleteCachedLocalAudioBlob(target.audioId);
+      void fetch(`/api/audio/${encodeURIComponent(target.audioId)}`, {
+        method: 'DELETE',
+      }).catch(() => {});
     }
 
-    const res = await fetch(`/api/entries/${encodeURIComponent(entryId)}`, {
-      method: 'DELETE',
-    });
-    if (!res.ok) {
-      throw new Error('Failed to delete entry from server.');
-    }
+    await markLocalEntryDeleted(entryId);
+    const visible = await loadVisibleLocalEntries();
+    setEntries(visible);
+    void syncCoordinator.emitStatus(visible);
 
-    setEntries((prev) => prev.filter((e) => e.id !== entryId));
-
-    if (user && user.emailVerified) {
-      void deleteEntryFromFirestore(entryId).catch((err) => {
-        console.warn('Firestore delete warning:', err);
-      });
+    void defaultMirrorDeleteToD1(entryId);
+    if (userRef.current && userRef.current.emailVerified) {
+      void syncCoordinator.synchronize('push_only');
     }
   };
 
@@ -291,9 +354,9 @@ export default function App() {
     const oldAudioId = entry.audioId;
 
     await deleteCachedLocalAudioBlob(oldAudioId);
-    await fetch(`/api/audio/${encodeURIComponent(oldAudioId)}`, {
+    void fetch(`/api/audio/${encodeURIComponent(oldAudioId)}`, {
       method: 'DELETE',
-    });
+    }).catch(() => {});
 
     const updated: JournalEntry = {
       ...entry,
@@ -310,19 +373,14 @@ export default function App() {
   };
 
   const handleUpdateSettings = async (next: UserSettings) => {
+    if (areSettingsEqual(settings, next)) {
+      return;
+    }
     setSettings(next);
     try {
       localStorage.setItem('interstitial_accent', next.accentColor || 'terracotta');
     } catch {}
-    await fetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(next),
-    }).catch(() => {});
-
-    if (user && user.emailVerified) {
-      await saveUserSettingsToFirestore(next).catch(() => {});
-    }
+    await syncCoordinator.updateSettingsIfChanged(settings, next);
   };
 
   // Filtered entries based on search query and date filter
@@ -980,6 +1038,8 @@ export default function App() {
           settings={settings}
           entries={entries}
           user={user}
+          syncSummary={syncSummary}
+          onSyncNow={handleManualSync}
           onUpdateSettings={handleUpdateSettings}
           onSignIn={async () => {
             await signInWithGoogle();

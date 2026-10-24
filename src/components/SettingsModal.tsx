@@ -11,11 +11,14 @@ import {
   LogOut,
   Copy,
   Check,
+  RefreshCw,
 } from 'lucide-react';
 import {
   AccentColorPreference,
   AudioRetentionPreference,
+  formatTimeOfDay,
   JournalEntry,
+  SyncStateSummary,
   ThemePreference,
   TranscriptionProviderId,
   UserSettings,
@@ -34,6 +37,8 @@ interface SettingsModalProps {
   settings: UserSettings;
   entries: JournalEntry[];
   user: User | null;
+  syncSummary: SyncStateSummary;
+  onSyncNow: () => Promise<void>;
   onUpdateSettings: (next: UserSettings) => void;
   onSignIn: () => Promise<void>;
   onSignOut: () => Promise<void>;
@@ -64,6 +69,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   settings,
   entries,
   user,
+  syncSummary,
+  onSyncNow,
   onUpdateSettings,
   onSignIn,
   onSignOut,
@@ -382,7 +389,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
               <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                 {user
-                  ? `Signed in as ${user.email} · Synced with private Firestore database`
+                  ? `Signed in as ${user.email}`
                   : 'Sign in with Google to synchronize your private journal across devices.'}
               </p>
             </div>
@@ -406,6 +413,63 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </button>
             )}
           </div>
+
+          {/* Subtle Local-First Synchronization Status & Manual Sync Control */}
+          <div className="pt-2.5 border-t border-[var(--border-hairline)] flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2 text-[var(--text-secondary)] font-mono-tabular">
+              <span
+                className={
+                  syncSummary.state === 'error'
+                    ? 'font-medium text-[var(--state-error)]'
+                    : syncSummary.pendingCount > 0
+                    ? 'font-medium text-[var(--accent-terracotta)]'
+                    : 'font-medium text-[var(--accent-sage)]'
+                }
+              >
+                {syncSummary.state === 'error'
+                  ? 'Sync failed · Retry'
+                  : syncSummary.state === 'syncing'
+                  ? 'Syncing...'
+                  : syncSummary.pendingCount > 0
+                  ? 'Saved locally · Sync pending'
+                  : 'Synced'}
+              </span>
+              {syncSummary.pendingCount > 0 && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>
+                    {syncSummary.pendingCount}{' '}
+                    {syncSummary.pendingCount === 1 ? 'change' : 'changes'} pending
+                  </span>
+                </>
+              )}
+              {syncSummary.lastSyncedAtIso && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>
+                    Last sync {formatTimeOfDay(syncSummary.lastSyncedAtIso)}
+                  </span>
+                </>
+              )}
+            </div>
+
+            {user && (
+              <button
+                type="button"
+                onClick={() => void onSyncNow()}
+                disabled={syncSummary.state === 'syncing'}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors disabled:opacity-50 min-h-[34px] cursor-pointer"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${
+                    syncSummary.state === 'syncing' ? 'animate-spin' : ''
+                  }`}
+                />
+                <span>Sync Now</span>
+              </button>
+            )}
+          </div>
+
           <div className="pt-2 border-t border-[var(--border-hairline)] flex items-center justify-between">
             <span className="text-xs text-[var(--text-secondary)]">
               Installable Progressive Web App
