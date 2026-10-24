@@ -95,6 +95,7 @@ service cloud.firestore {
         'defaultCleanupMode',
         'audioRetention',
         'transcriptionProvider',
+        'accentColor',
         'updatedAt'
       ]) &&
       data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
@@ -106,7 +107,7 @@ service cloud.firestore {
       data.audioRetention is string && data.audioRetention.size() >= 4 && data.audioRetention.size() <= 32 &&
       (data.audioRetention == 'keep' || data.audioRetention == 'delete_after_approval') &&
       data.transcriptionProvider is string && data.transcriptionProvider.size() >= 5 && data.transcriptionProvider.size() <= 64 &&
-      (data.transcriptionProvider == 'gemini-3.5-transcribe' || data.transcriptionProvider == 'browser-speech') &&
+      (!('accentColor' in data) || (data.accentColor is string && (data.accentColor == 'terracotta' || data.accentColor == 'midnight' || data.accentColor == 'sapphire' || data.accentColor == 'forest'))) &&
       data.updatedAt is timestamp;
     }
 
@@ -155,7 +156,7 @@ service cloud.firestore {
 
     // User Settings Collection
     match /user_settings/{userId} {
-      allow get: if isSignedIn() && isValidId(userId) && userId == request.auth.uid && existing().ownerId == request.auth.uid;
+      allow get: if isSignedIn() && isValidId(userId) && userId == request.auth.uid;
 
       allow create: if isSignedIn() &&
         isValidId(userId) &&
@@ -178,6 +179,7 @@ service cloud.firestore {
             'defaultCleanupMode',
             'audioRetention',
             'transcriptionProvider',
+            'accentColor',
             'updatedAt'
           ]))
         )

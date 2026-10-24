@@ -238,11 +238,10 @@ export async function saveUserSettingsToFirestore(settings: UserSettings): Promi
     audioRetention: ['keep', 'delete_after_approval'].includes(settings.audioRetention)
       ? settings.audioRetention
       : 'keep',
-    transcriptionProvider: ['gemini-3.5-transcribe', 'browser-speech'].includes(
-      settings.transcriptionProvider
-    )
-      ? settings.transcriptionProvider
-      : 'gemini-3.5-transcribe',
+    transcriptionProvider: settings.transcriptionProvider || 'gemini-3.5-transcribe',
+    accentColor: settings.accentColor && ['terracotta', 'midnight', 'sapphire', 'forest'].includes(settings.accentColor)
+      ? settings.accentColor
+      : 'terracotta',
     updatedAt: serverTimestamp(),
   };
 
@@ -254,6 +253,7 @@ export async function saveUserSettingsToFirestore(settings: UserSettings): Promi
         defaultCleanupMode: payload.defaultCleanupMode,
         audioRetention: payload.audioRetention,
         transcriptionProvider: payload.transcriptionProvider,
+        accentColor: payload.accentColor,
         updatedAt: serverTimestamp(),
       });
     } else {
