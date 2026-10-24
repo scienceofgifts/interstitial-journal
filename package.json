@@ -4,14 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "wrangler dev -- npm run build && vite",
     "build": "vite build",
     "deploy": "vite build && wrangler deploy",
     "d1:migrate": "wrangler d1 migrations apply interstitial-journal-db --remote",
     "d1:migrate:local": "wrangler d1 migrations apply interstitial-journal-db --local",
-    "start": "node --import tsx server.ts",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
@@ -19,7 +18,6 @@
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.1",
     "dotenv": "^17.2.3",
-    "express": "^4.21.2",
     "firebase": "^13.1.0",
     "hono": "^4.13.13",
     "lucide-react": "^0.546.0",
@@ -31,7 +29,6 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261024.1",
     "@firebase/eslint-plugin-security-rules": "^0.0.2",
-    "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

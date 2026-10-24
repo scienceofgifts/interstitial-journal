@@ -1,0 +1,24 @@
+name = "interstitial-journal"
+main = "src/worker.ts"
+compatibility_date = "2024-03-20"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "dist"
+
+[dev]
+port = 3000
+ip = "0.0.0.0"
+
+[vars]
+GEMINI_FLASH_LITE_MODEL = "gemini-3.5-flash-lite"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "interstitial-journal-db"
+database_id = "interstitial-journal-db-id"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "AUDIO_BUCKET"
+bucket_name = "interstitial-journal-audio"
