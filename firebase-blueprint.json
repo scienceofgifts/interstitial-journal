@@ -1,0 +1,187 @@
+{
+  "entities": {
+    "JournalEntry": {
+      "title": "JournalEntry",
+      "description": "A chronological voice-first interstitial journal entry with raw and cleaned transcriptions.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique entry identifier",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Authenticated user UID who owns this journal entry",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "rawTranscription": {
+          "type": "string",
+          "description": "Original verbatim speech-to-text transcription",
+          "minLength": 0,
+          "maxLength": 50000
+        },
+        "cleanedTranscription": {
+          "type": "string",
+          "description": "AI-cleaned transcription preserving speaker meaning",
+          "minLength": 0,
+          "maxLength": 50000
+        },
+        "finalText": {
+          "type": "string",
+          "description": "The selected and user-edited final journal text displayed in the timeline",
+          "minLength": 1,
+          "maxLength": 50000
+        },
+        "cleanupMode": {
+          "type": "string",
+          "description": "The cleanup mode applied to the entry",
+          "enum": ["none", "light", "clean"],
+          "minLength": 4,
+          "maxLength": 16
+        },
+        "ambiguityNotes": {
+          "type": "string",
+          "description": "Flagged ambiguous passages or uncertain proper nouns from transcription cleanup",
+          "minLength": 0,
+          "maxLength": 5000
+        },
+        "audioId": {
+          "type": "string",
+          "description": "Reference ID for retained audio in object storage, or empty string if not retained",
+          "minLength": 0,
+          "maxLength": 128
+        },
+        "audioMimeType": {
+          "type": "string",
+          "description": "MIME type of the recorded audio",
+          "minLength": 0,
+          "maxLength": 64
+        },
+        "audioDurationSec": {
+          "type": "number",
+          "description": "Duration of the recorded audio in seconds"
+        },
+        "dateKey": {
+          "type": "string",
+          "description": "Local calendar date in YYYY-MM-DD format for timeline grouping",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "createdAtIso": {
+          "type": "string",
+          "description": "ISO-8601 creation timestamp in user local context",
+          "minLength": 10,
+          "maxLength": 64
+        },
+        "updatedAtIso": {
+          "type": "string",
+          "description": "ISO-8601 last modification timestamp",
+          "minLength": 10,
+          "maxLength": 64
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server modification timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "rawTranscription",
+        "cleanedTranscription",
+        "finalText",
+        "cleanupMode",
+        "ambiguityNotes",
+        "audioId",
+        "audioMimeType",
+        "audioDurationSec",
+        "dateKey",
+        "createdAtIso",
+        "updatedAtIso",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "User preferences for theme, transcription cleanup mode, and audio retention.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Authenticated user UID",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "theme": {
+          "type": "string",
+          "description": "Appearance preference",
+          "enum": ["light", "dark", "system"],
+          "minLength": 4,
+          "maxLength": 16
+        },
+        "defaultCleanupMode": {
+          "type": "string",
+          "description": "Default AI transcription cleanup preference",
+          "enum": ["light", "clean"],
+          "minLength": 5,
+          "maxLength": 16
+        },
+        "audioRetention": {
+          "type": "string",
+          "description": "Whether to retain original audio or delete after approval",
+          "enum": ["keep", "delete_after_approval"],
+          "minLength": 4,
+          "maxLength": 32
+        },
+        "transcriptionProvider": {
+          "type": "string",
+          "description": "Configured speech-to-text provider",
+          "enum": ["gemini-3.5-transcribe", "browser-speech"],
+          "minLength": 5,
+          "maxLength": 64
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server modification timestamp"
+        }
+      },
+      "required": [
+        "ownerId",
+        "theme",
+        "defaultCleanupMode",
+        "audioRetention",
+        "transcriptionProvider",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/entries/{entryId}": {
+      "schema": {
+        "$ref": "#/entities/JournalEntry"
+      },
+      "description": "Collection of private voice-first journal entries owned by individual users."
+    },
+    "/user_settings/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserSettings"
+      },
+      "description": "Per-user configuration for appearance, transcription cleanup, and audio retention."
+    }
+  }
+}

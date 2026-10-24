@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Warm ivory archival paper background -->
+  <rect width="512" height="512" fill="#FBF9F5"/>
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="#FBF9F5" stroke="#EAE4D6" stroke-width="4"/>
+  
+  <!-- Interstitial Editorial Symbol: Acoustic resonance + Pause pillars -->
+  <!-- Left sage acoustic bar -->
+  <rect x="156" y="216" width="22" height="80" rx="11" fill="#3F6152"/>
+  <!-- Primary charcoal voice pillar -->
+  <rect x="210" y="148" width="30" height="216" rx="15" fill="#1C1917"/>
+  <!-- Interstitial terracotta pause pillar -->
+  <rect x="272" y="180" width="30" height="184" rx="15" fill="#B85D3B"/>
+  <!-- Right sage acoustic bar -->
+  <rect x="334" y="226" width="22" height="68" rx="11" fill="#3F6152"/>
+  
+  <!-- Subtle thought anchor dot -->
+  <circle cx="256" cy="392" r="8" fill="#B85D3B"/>
+</svg>

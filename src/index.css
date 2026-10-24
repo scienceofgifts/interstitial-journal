@@ -1,0 +1,193 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-serif: 'Fraunces', Georgia, Cambria, "Times New Roman", Times, serif;
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+    /* Light Mode — Archival Warm Ivory & Editorial Sage/Terracotta */
+    --bg-canvas: #FBF9F5;
+    --bg-surface: #F4F0E6;
+    --bg-elevated: #FFFFFF;
+    --bg-subtle: #EDE8DC;
+    --border-hairline: #E4DEC8;
+    --border-strong: #D0C8B4;
+
+    --text-primary: #1C1917;
+    --text-secondary: #5C564E;
+    --text-muted: #857E74;
+
+    --accent-sage: #3F6152;
+    --accent-sage-hover: #335043;
+    --accent-sage-soft: #E8EFEA;
+
+    --accent-terracotta: #B85D3B;
+    --accent-terracotta-hover: #9E4B2C;
+    --accent-terracotta-soft: #F9ECE6;
+    --accent-contrast: #FFFFFF;
+
+    --accent-primary: var(--accent-terracotta);
+    --accent-primary-hover: var(--accent-terracotta-hover);
+    --accent-primary-soft: var(--accent-terracotta-soft);
+
+    /* Palette Swatches for Settings UI (Light) */
+    --swatch-terracotta: #B85D3B;
+    --swatch-midnight: #23201C;
+    --swatch-sapphire: #2B5278;
+    --swatch-forest: #2E5A44;
+
+    --state-success: #2E6248;
+    --state-warning: #9A6324;
+    --state-error: #A8383B;
+  }
+
+  /* Light mode accent variations */
+  :root[data-accent="terracotta"] {
+    --accent-terracotta: #B85D3B;
+    --accent-terracotta-hover: #9E4B2C;
+    --accent-terracotta-soft: #F9ECE6;
+    --accent-contrast: #FFFFFF;
+  }
+
+  :root[data-accent="midnight"] {
+    --accent-terracotta: #23201C;
+    --accent-terracotta-hover: #0D0C0A;
+    --accent-terracotta-soft: #EDE8DC;
+    --accent-contrast: #FFFFFF;
+  }
+
+  :root[data-accent="sapphire"] {
+    --accent-terracotta: #2B5278;
+    --accent-terracotta-hover: #1E3D5C;
+    --accent-terracotta-soft: #EBF1F7;
+    --accent-contrast: #FFFFFF;
+  }
+
+  :root[data-accent="forest"] {
+    --accent-terracotta: #2E5A44;
+    --accent-terracotta-hover: #224433;
+    --accent-terracotta-soft: #EBF3ED;
+    --accent-contrast: #FFFFFF;
+  }
+
+  .dark {
+    /* Deliberate Warm Obsidian Editorial Dark Mode */
+    --bg-canvas: #141311;
+    --bg-surface: #1C1A17;
+    --bg-elevated: #23201C;
+    --bg-subtle: #2A2622;
+    --border-hairline: #2E2B26;
+    --border-strong: #403B34;
+
+    --text-primary: #F2EFE9;
+    --text-secondary: #B5ADA2;
+    --text-muted: #7D766C;
+
+    --accent-sage: #6E9481;
+    --accent-sage-hover: #83A895;
+    --accent-sage-soft: #1F2B25;
+
+    --accent-terracotta: #D47655;
+    --accent-terracotta-hover: #E0896B;
+    --accent-terracotta-soft: #2E1F1A;
+    --accent-contrast: #FFFFFF;
+
+    --accent-primary: var(--accent-terracotta);
+    --accent-primary-hover: var(--accent-terracotta-hover);
+    --accent-primary-soft: var(--accent-terracotta-soft);
+
+    /* Palette Swatches for Settings UI (Dark) */
+    --swatch-terracotta: #D47655;
+    --swatch-midnight: #E2DDD5;
+    --swatch-sapphire: #6592C0;
+    --swatch-forest: #5FA37D;
+
+    --state-success: #5E9E7E;
+    --state-warning: #D99B52;
+    --state-error: #E06C70;
+  }
+
+  /* Dark mode accent variations */
+  .dark[data-accent="terracotta"],
+  .dark [data-accent="terracotta"] {
+    --accent-terracotta: #D47655;
+    --accent-terracotta-hover: #E0896B;
+    --accent-terracotta-soft: #2E1F1A;
+    --accent-contrast: #FFFFFF;
+  }
+
+  .dark[data-accent="midnight"],
+  .dark [data-accent="midnight"] {
+    --accent-terracotta: #E2DDD5;
+    --accent-terracotta-hover: #F2EFEA;
+    --accent-terracotta-soft: #282520;
+    --accent-contrast: #141311;
+  }
+
+  .dark[data-accent="sapphire"],
+  .dark [data-accent="sapphire"] {
+    --accent-terracotta: #6592C0;
+    --accent-terracotta-hover: #7BA6D2;
+    --accent-terracotta-soft: #1B2633;
+    --accent-contrast: #FFFFFF;
+  }
+
+  .dark[data-accent="forest"],
+  .dark [data-accent="forest"] {
+    --accent-terracotta: #5FA37D;
+    --accent-terracotta-hover: #73B690;
+    --accent-terracotta-soft: #1A2D22;
+    --accent-contrast: #FFFFFF;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .dark body {
+    letter-spacing: 0.008em;
+  }
+
+  body {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    transition: background-color 180ms cubic-bezier(0.16, 1, 0.3, 1), color 180ms cubic-bezier(0.16, 1, 0.3, 1);
+    overflow-x: hidden;
+  }
+}
+
+.font-serif-editorial {
+  font-family: var(--font-serif);
+  font-Variation-settings: "opsz" 36;
+}
+
+.font-sans-ui {
+  font-family: var(--font-sans);
+}
+
+.font-mono-tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.balance-text {
+  text-wrap: balance;
+}
+
+/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}

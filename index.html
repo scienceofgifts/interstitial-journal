@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interstitial — Voice-First Journal</title>
+    <script>
+      (function() {
+        // 1. Stub Vite HMR WebSocket so @vite/client never fails or throws in no-HMR cloud environments
+        if (typeof window !== 'undefined' && window.WebSocket) {
+          const NativeWebSocket = window.WebSocket;
+          function ViteHmrStub(url, protocols) {
+            const isViteHmr =
+              protocols === 'vite-hmr' ||
+              (Array.isArray(protocols) && protocols.includes('vite-hmr')) ||
+              (typeof url === 'string' && url.includes('vite-hmr'));
+
+            if (isViteHmr) {
+              const target = new EventTarget();
+              target.binaryType = 'blob';
+              target.readyState = 1; // WebSocket.OPEN
+              target.OPEN = 1;
+              target.CLOSED = 3;
+              target.CLOSING = 2;
+              target.CONNECTING = 0;
+              target.send = function() {};
+              target.close = function() {};
+              queueMicrotask(function() {
+                target.dispatchEvent(new Event('open'));
+              });
+              return target;
+            }
+            return new NativeWebSocket(url, protocols);
+          }
+          ViteHmrStub.prototype = NativeWebSocket.prototype;
+          ViteHmrStub.CONNECTING = 0;
+          ViteHmrStub.OPEN = 1;
+          ViteHmrStub.CLOSING = 2;
+          ViteHmrStub.CLOSED = 3;
+          window.WebSocket = ViteHmrStub;
+        }
+
+        // 2. Intercept console.error for benign [vite] WebSocket disconnection messages
+        const origConsoleError = console.error;
+        console.error = function(...args) {
+          if (
+            args.length > 0 &&
+            (args[0] === '[vite]' || (typeof args[0] === 'string' && args[0].includes('[vite]'))) &&
+            args.some(function(arg) {
+              const str = (arg && arg.message) || String(arg || '');
+              return str.includes('WebSocket') || str.includes('failed to connect') || str.includes('connection lost');
+            })
+          ) {
+            return;
+          }
+          return origConsoleError.apply(console, args);
+        };
+
+        // 3. Prevent unhandled rejections and window errors from [vite] or WebSocket
+        window.addEventListener('unhandledrejection', function(event) {
+          const msg = (event?.reason?.message) || String(event?.reason || '');
+          if (msg.includes('WebSocket') || msg.includes('[vite]')) {
+            event.preventDefault();
+            event.stopImmediatePropagation?.();
+          }
+        });
+        window.addEventListener('error', function(event) {
+          const msg = event?.message || '';
+          const src = event?.filename || '';
+          if (msg.includes('WebSocket') || src.includes('@vite/client')) {
+            event.preventDefault();
+            event.stopImmediatePropagation?.();
+          }
+        });
+
+        // 4. Restore saved accent colour immediately to prevent flash of wrong accent
+        try {
+          const savedAccent = localStorage.getItem('interstitial_accent');
+          if (savedAccent && ['terracotta', 'midnight', 'sapphire', 'forest'].includes(savedAccent)) {
+            document.documentElement.setAttribute('data-accent', savedAccent);
+          }
+        } catch {}
+      })();
+    </script>
+    <meta name="description" content="An editorial voice-first personal journal designed to capture spoken thoughts, transcribe speech, and preserve daily reflections with effortless elegance." />
+    <meta property="og:title" content="Interstitial — Voice-First Journal" />
+    <meta property="og:description" content="An editorial voice-first personal journal designed to capture spoken thoughts, transcribe speech, and preserve daily reflections with effortless elegance." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#FBF9F5" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Interstitial" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

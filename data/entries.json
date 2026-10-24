@@ -1,0 +1,47 @@
+[
+  {
+    "id": "entry_1792846841899",
+    "ownerId": "SHRL3XuEHDYVeJrAVTdqiFN0Zmu1",
+    "rawTranscription": "I'm trying to figure out how to make this app work. Uh I will make some coffee now and then I will finish uploading and deploying this app. Maybe make a few changes, very few, like changing the color. And once it starts working, that's it. I'm not going to tinker with it anymore. I'll just use it like this and start working.",
+    "cleanedTranscription": "I'm trying to figure out how to make this app work. I will make some coffee now, and then I will finish uploading and deploying this app. Maybe make a few changes—very few, like changing the color. And once it starts working, that's it. I'm not going to tinker with it anymore. I'll just use it like this and start working.",
+    "finalText": "I'm trying to figure out how to make this app work. I will make some coffee now, and then I will finish uploading and deploying this app. Maybe make a few changes—very few, like changing the color. And once it starts working, that's it. I'm not going to tinker with it anymore. I'll just use it like this and start working.",
+    "cleanupMode": "clean",
+    "ambiguityNotes": "",
+    "audioId": "",
+    "audioMimeType": "",
+    "audioDurationSec": 0,
+    "dateKey": "2026-10-24",
+    "createdAtIso": "2026-10-24T13:01:47.033Z",
+    "updatedAtIso": "2026-10-24T13:01:47.033Z"
+  },
+  {
+    "id": "entry_1792844366250",
+    "ownerId": "local",
+    "rawTranscription": "ordered chicken and the other stuff, and boil the potatoes. Now, all I have to do is chop some onions, clean the pan, and cook poha, which should be easy. After that, I eat, then I make some coffee and start working, after I marinate the chicken, easy.",
+    "cleanedTranscription": "I ordered chicken and the other stuff, and boiled the potatoes. Now, all I have to do is chop some onions, clean the pan, and cook poha, which should be easy. After that, I will eat, make some coffee, and start working after I marinate the chicken. Easy.",
+    "finalText": "I ordered chicken and the other stuff, and boiled the potatoes. Now, all I have to do is chop some onions, clean the pan, and cook poha, which should be easy. After that, I will eat, make some coffee, and start working after I marinate the chicken. Easy.",
+    "cleanupMode": "clean",
+    "ambiguityNotes": "",
+    "audioId": "",
+    "audioMimeType": "",
+    "audioDurationSec": 0,
+    "dateKey": "2026-10-24",
+    "createdAtIso": "2026-10-24T12:20:09.620Z",
+    "updatedAtIso": "2026-10-24T12:20:09.620Z"
+  },
+  {
+    "id": "entry_1792843302052",
+    "ownerId": "local",
+    "rawTranscription": "I will prepare for making poha first and also order some stuff from Blinkit. And then once I eat, I will start working.",
+    "cleanedTranscription": "",
+    "finalText": "I will prepare for making poha first and also order some stuff from Blinkit. And then once I eat, I will start working.",
+    "cleanupMode": "none",
+    "ambiguityNotes": "",
+    "audioId": "",
+    "audioMimeType": "",
+    "audioDurationSec": 0,
+    "dateKey": "2026-10-24",
+    "createdAtIso": "2026-10-24T12:01:55.074Z",
+    "updatedAtIso": "2026-10-24T12:01:55.074Z"
+  }
+]

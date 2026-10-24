@@ -1,0 +1,6 @@
+{
+  "name": "Cadence — Voice-First Interstitial Journal",
+  "description": "An editorial voice-first personal journal designed to capture spoken thoughts, transcribe speech, and preserve daily reflections with effortless elegance.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

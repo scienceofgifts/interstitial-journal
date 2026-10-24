@@ -1,0 +1,189 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 0: Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Hardened Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    // Validation Blueprint: JournalEntry
+    function isValidJournalEntry(data) {
+      return data.keys().hasAll([
+        'id',
+        'ownerId',
+        'rawTranscription',
+        'cleanedTranscription',
+        'finalText',
+        'cleanupMode',
+        'ambiguityNotes',
+        'audioId',
+        'audioMimeType',
+        'audioDurationSec',
+        'dateKey',
+        'createdAtIso',
+        'updatedAtIso',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id',
+        'ownerId',
+        'rawTranscription',
+        'cleanedTranscription',
+        'finalText',
+        'cleanupMode',
+        'ambiguityNotes',
+        'audioId',
+        'audioMimeType',
+        'audioDurationSec',
+        'dateKey',
+        'createdAtIso',
+        'updatedAtIso',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.id is string && data.id.size() >= 1 && data.id.size() <= 128 && data.id.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.ownerId == request.auth.uid &&
+      data.rawTranscription is string && data.rawTranscription.size() >= 0 && data.rawTranscription.size() <= 50000 &&
+      data.cleanedTranscription is string && data.cleanedTranscription.size() >= 0 && data.cleanedTranscription.size() <= 50000 &&
+      data.finalText is string && data.finalText.size() >= 1 && data.finalText.size() <= 50000 &&
+      data.cleanupMode is string && data.cleanupMode.size() >= 4 && data.cleanupMode.size() <= 16 &&
+      (data.cleanupMode == 'none' || data.cleanupMode == 'light' || data.cleanupMode == 'clean') &&
+      data.ambiguityNotes is string && data.ambiguityNotes.size() >= 0 && data.ambiguityNotes.size() <= 5000 &&
+      data.audioId is string && data.audioId.size() >= 0 && data.audioId.size() <= 128 &&
+      data.audioMimeType is string && data.audioMimeType.size() >= 0 && data.audioMimeType.size() <= 64 &&
+      data.audioDurationSec is number && data.audioDurationSec >= 0 && data.audioDurationSec <= 7200 &&
+      data.dateKey is string && data.dateKey.size() == 10 && data.dateKey.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+      data.createdAtIso is string && data.createdAtIso.size() >= 10 && data.createdAtIso.size() <= 64 &&
+      data.updatedAtIso is string && data.updatedAtIso.size() >= 10 && data.updatedAtIso.size() <= 64 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: UserSettings
+    function isValidUserSettings(data) {
+      return data.keys().hasAll([
+        'ownerId',
+        'theme',
+        'defaultCleanupMode',
+        'audioRetention',
+        'transcriptionProvider',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId',
+        'theme',
+        'defaultCleanupMode',
+        'audioRetention',
+        'transcriptionProvider',
+        'updatedAt'
+      ]) &&
+      data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.ownerId == request.auth.uid &&
+      data.theme is string && data.theme.size() >= 4 && data.theme.size() <= 16 &&
+      (data.theme == 'light' || data.theme == 'dark' || data.theme == 'system') &&
+      data.defaultCleanupMode is string && data.defaultCleanupMode.size() >= 5 && data.defaultCleanupMode.size() <= 16 &&
+      (data.defaultCleanupMode == 'light' || data.defaultCleanupMode == 'clean') &&
+      data.audioRetention is string && data.audioRetention.size() >= 4 && data.audioRetention.size() <= 32 &&
+      (data.audioRetention == 'keep' || data.audioRetention == 'delete_after_approval') &&
+      data.transcriptionProvider is string && data.transcriptionProvider.size() >= 5 && data.transcriptionProvider.size() <= 64 &&
+      (data.transcriptionProvider == 'gemini-3.5-transcribe' || data.transcriptionProvider == 'browser-speech') &&
+      data.updatedAt is timestamp;
+    }
+
+    // Journal Entries Collection
+    match /entries/{entryId} {
+      allow get: if isSignedIn() && isValidId(entryId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+        isValidId(entryId) &&
+        isValidJournalEntry(incoming()) &&
+        incoming().id == entryId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if (
+        isSignedIn() &&
+        isValidId(entryId) &&
+        isValidJournalEntry(incoming()) &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().id == existing().id &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().createdAtIso == existing().createdAtIso &&
+        incoming().dateKey == existing().dateKey &&
+        incoming().updatedAt == request.time &&
+        (
+          // Action: Edit Content or Transcription
+          (incoming().diff(existing()).affectedKeys().hasOnly([
+            'rawTranscription',
+            'cleanedTranscription',
+            'finalText',
+            'cleanupMode',
+            'ambiguityNotes',
+            'audioId',
+            'audioMimeType',
+            'audioDurationSec',
+            'updatedAtIso',
+            'updatedAt'
+          ]))
+        )
+      );
+
+      allow delete: if isSignedIn() && isValidId(entryId) && existing().ownerId == request.auth.uid;
+    }
+
+    // User Settings Collection
+    match /user_settings/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && userId == request.auth.uid && existing().ownerId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+        isValidId(userId) &&
+        userId == request.auth.uid &&
+        isValidUserSettings(incoming()) &&
+        incoming().updatedAt == request.time;
+
+      allow update: if (
+        isSignedIn() &&
+        isValidId(userId) &&
+        userId == request.auth.uid &&
+        isValidUserSettings(incoming()) &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().updatedAt == request.time &&
+        (
+          // Action: Update Preferences
+          (incoming().diff(existing()).affectedKeys().hasOnly([
+            'theme',
+            'defaultCleanupMode',
+            'audioRetention',
+            'transcriptionProvider',
+            'updatedAt'
+          ]))
+        )
+      );
+
+      allow delete: if isSignedIn() && isValidId(userId) && userId == request.auth.uid && existing().ownerId == request.auth.uid;
+    }
+  }
+}

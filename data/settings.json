@@ -1,0 +1,8 @@
+{
+  "theme": "light",
+  "defaultCleanupMode": "clean",
+  "audioRetention": "keep",
+  "transcriptionProvider": "gemini-3.5-flash-lite",
+  "accentColor": "terracotta",
+  "updatedAtIso": "2026-10-24T13:22:47.686Z"
+}
