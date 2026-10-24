@@ -97,6 +97,7 @@ export const VoiceRecorderStudio: React.FC<VoiceRecorderStudioProps> = ({
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const isPausedRef = useRef<boolean>(false);
+  const isSavingRef = useRef<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -602,12 +603,15 @@ export const VoiceRecorderStudio: React.FC<VoiceRecorderStudioProps> = ({
   };
 
   const handleSave = async () => {
+    if (isSavingRef.current || isSaving) return;
+
     const textToSave = finalText.trim() || cleanedTranscription.trim() || rawTranscription.trim();
     if (!textToSave) {
       setErrorMsg('Cannot save an empty journal entry.');
       return;
     }
 
+    isSavingRef.current = true;
     setIsSaving(true);
     setErrorMsg(null);
 
@@ -618,8 +622,8 @@ export const VoiceRecorderStudio: React.FC<VoiceRecorderStudioProps> = ({
 
       // If user chose not to retain original audio after approval, delete it now
       if (!retainAudioForEntry && audioId) {
-        await deleteCachedLocalAudioBlob(audioId);
-        await fetch(`/api/audio/${encodeURIComponent(audioId)}`, {
+        void deleteCachedLocalAudioBlob(audioId);
+        void fetch(`/api/audio/${encodeURIComponent(audioId)}`, {
           method: 'DELETE',
         }).catch(() => {});
         finalAudioId = '';
@@ -643,9 +647,8 @@ export const VoiceRecorderStudio: React.FC<VoiceRecorderStudioProps> = ({
       };
 
       await onSaveEntry(newEntry, retainAudioForEntry ? audioBlob : undefined);
-      await clearActiveDraft();
 
-      // Reset studio back to idle
+      // Reset studio back to idle immediately after save succeeds
       setStage('idle');
       setDraftId('');
       setAudioId('');
@@ -655,6 +658,9 @@ export const VoiceRecorderStudio: React.FC<VoiceRecorderStudioProps> = ({
       setFinalText('');
       setCleanupMode('none');
       setAmbiguityNotes('');
+      setRecoverableDraft(null);
+
+      void clearActiveDraft();
     } catch (err) {
       setErrorMsg(
         err instanceof Error
@@ -662,6 +668,7 @@ export const VoiceRecorderStudio: React.FC<VoiceRecorderStudioProps> = ({
           : 'Failed to save entry to persistent database. Your work is still preserved here.'
       );
     } finally {
+      isSavingRef.current = false;
       setIsSaving(false);
     }
   };

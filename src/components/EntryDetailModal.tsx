@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   X,
   Sparkles,
@@ -48,6 +48,7 @@ export const EntryDetailModal: React.FC<EntryDetailModalProps> = ({
 
   const [isCleaning, setIsCleaning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -96,10 +97,12 @@ export const EntryDetailModal: React.FC<EntryDetailModalProps> = ({
   };
 
   const handleSaveChanges = async () => {
+    if (isSavingRef.current || isSaving) return;
     if (!finalText.trim()) {
       setErrorMsg('Entry text cannot be empty.');
       return;
     }
+    isSavingRef.current = true;
     setIsSaving(true);
     setErrorMsg(null);
     try {
@@ -116,6 +119,7 @@ export const EntryDetailModal: React.FC<EntryDetailModalProps> = ({
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Failed to update entry.');
     } finally {
+      isSavingRef.current = false;
       setIsSaving(false);
     }
   };

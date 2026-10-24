@@ -207,7 +207,7 @@ export default function App() {
   // Save a newly recorded & reviewed journal entry
   const handleSaveNewEntry = async (newEntry: JournalEntry, audioBlob?: Blob) => {
     if (audioBlob && newEntry.audioId) {
-      await cacheLocalAudioBlob(newEntry.audioId, audioBlob, newEntry.audioMimeType);
+      void cacheLocalAudioBlob(newEntry.audioId, audioBlob, newEntry.audioMimeType);
     }
 
     // 1. Save to persistent backend API — do not report saved until backend confirms
@@ -224,19 +224,19 @@ export default function App() {
 
     const { entry: savedServerEntry } = await res.json();
 
-    // 2. If authenticated with Firebase, also persist to Firestore
+    setEntries((prev) => {
+      const filtered = prev.filter((e) => e.id !== savedServerEntry.id);
+      return [savedServerEntry, ...filtered];
+    });
+
+    // 2. If authenticated with Firebase, also persist to Firestore without blocking UI state completion
     if (user && user.emailVerified) {
-      await createEntryInFirestore({ ...savedServerEntry, ownerId: user.uid }).catch(
+      void createEntryInFirestore({ ...savedServerEntry, ownerId: user.uid }).catch(
         (err) => {
           console.warn('Firestore sync warning:', err);
         }
       );
     }
-
-    setEntries((prev) => {
-      const filtered = prev.filter((e) => e.id !== savedServerEntry.id);
-      return [savedServerEntry, ...filtered];
-    });
   };
 
   // Update an edited entry (preserving createdAtIso, updating updatedAtIso)
@@ -253,20 +253,20 @@ export default function App() {
 
     const { entry: saved } = await res.json();
 
+    setEntries((prev) => prev.map((e) => (e.id === saved.id ? saved : e)));
+
     if (user && user.emailVerified) {
-      await updateEntryInFirestore({ ...saved, ownerId: user.uid }).catch((err) => {
+      void updateEntryInFirestore({ ...saved, ownerId: user.uid }).catch((err) => {
         console.warn('Firestore update warning:', err);
       });
     }
-
-    setEntries((prev) => prev.map((e) => (e.id === saved.id ? saved : e)));
   };
 
   // Delete an entry and its associated retained audio
   const handleDeleteEntry = async (entryId: string) => {
     const target = entries.find((e) => e.id === entryId);
     if (target?.audioId) {
-      await deleteCachedLocalAudioBlob(target.audioId);
+      void deleteCachedLocalAudioBlob(target.audioId);
     }
 
     const res = await fetch(`/api/entries/${encodeURIComponent(entryId)}`, {
@@ -276,13 +276,13 @@ export default function App() {
       throw new Error('Failed to delete entry from server.');
     }
 
+    setEntries((prev) => prev.filter((e) => e.id !== entryId));
+
     if (user && user.emailVerified) {
-      await deleteEntryFromFirestore(entryId).catch((err) => {
+      void deleteEntryFromFirestore(entryId).catch((err) => {
         console.warn('Firestore delete warning:', err);
       });
     }
-
-    setEntries((prev) => prev.filter((e) => e.id !== entryId));
   };
 
   // Delete only the retained audio of an entry while preserving the text entry
